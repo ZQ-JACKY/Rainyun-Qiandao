@@ -2,7 +2,7 @@ name: Rainyun 自动签到
 
 on:
   schedule:
-    - cron: '0 4 * * *'  # UTC+8 12点执行
+    - cron: '0 2 * * *'  # UTC+8 12点执行
   workflow_dispatch:  # 允许手动触发
 
 jobs:
@@ -19,9 +19,7 @@ jobs:
       - name: 缓存Python依赖
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/pip
-            **/__pycache__
+          path: ~/.cache/pip
           key: ${{ runner.os }}-python-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-python-
@@ -31,32 +29,54 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: 缓存Chrome浏览器
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/google-chrome
-            /opt/google/chrome
-          key: ${{ runner.os }}-chrome-${{ hashFiles('**/.github/workflows/rainyun-sign.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-chrome-
+      # 移除Chrome浏览器缓存，因为缓存系统目录可能导致权限问题
+      # 使用webdriver-manager自动管理ChromeDriver，无需缓存
       
-      - name: 安装Chrome和ChromeDriver (简化版)
+      - name: 安装Chrome和ChromeDriver
         run: |
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable curl unzip
           # 使用webdriver-manager自动管理ChromeDriver版本
-          pip install webdriver-manager
+          pip install webdriver-manager chromedriver-binary-auto
       
       - name: 确保temp目录存在
         run: mkdir -p temp
       
       - name: 执行签到脚本
-        run: python rainyun.py
+       # 开启debug查看完整过程
+        run: DEBUG=true HEADLESS=false python rainyun.py python rainyun.py
         env:
           # 请在GitHub仓库的Settings > Secrets and variables > Actions中设置这些密钥
           RAINYUN_USER: ${{ secrets.RAINYUN_USER }}
           RAINYUN_PASS: ${{ secrets.RAINYUN_PASS }}
+          # 1. Push+ 微信推送（已配置，保留）
+          PUSH_PLUS_TOKEN: ${{ secrets.PUSH_PLUS_TOKEN }}
+          PUSH_PLUS_USER: ${{ secrets.PUSH_PLUS_USER }}  # 可选：群组编码
+
+          # 2. SMTP 邮件推送（重点补充，你已配置 Secrets）
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_SSL: ${{ secrets.SMTP_SSL }}
+          SMTP_EMAIL: ${{ secrets.SMTP_EMAIL }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_NAME: ${{ secrets.SMTP_NAME }}
+
+          # 3. Bark（iOS 推送）- 可选配置
+          BARK_PUSH: ${{ secrets.BARK_PUSH }}  # 设备码或完整 URL
+
+          # 4. 钉钉机器人推送 - 可选配置
+          DD_BOT_SECRET: ${{ secrets.DD_BOT_SECRET }}
+          DD_BOT_TOKEN: ${{ secrets.DD_BOT_TOKEN }}
+
+          # 5. 飞书机器人推送 - 可选配置
+          FSKEY: ${{ secrets.FSKEY }}  # 飞书 Webhook 密钥
+
+          # 6. Telegram 机器人推送 - 可选配置
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_USER_ID: ${{ secrets.TG_USER_ID }}
+
+          # 7. Server 酱推送 - 可选配置
+          PUSH_KEY: ${{ secrets.PUSH_KEY }}  # Server 酱密钥（兼容旧版/Turbo版）
+          
           # 设置无头模式环境变量
           HEADLESS: "true"
           # 启用调试日志
